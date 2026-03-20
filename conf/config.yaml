@@ -1,0 +1,23 @@
+kafka:
+  bootstrap_servers:
+    - localhost:9092
+  topic: e-invoicing
+  consumer_group_id: pdf-einvoicing-consumer
+
+database:
+  host: localhost
+  port: 5432
+  dbname: einvoicing
+  user: einvoicing_user
+  password: secret
+
+scanner:
+  recursive: true
+  extension: .pdf
+
+providers:
+  doxallia:
+    base_url: "http://sebastien.ferrandez.free.fr/freepro/doxallia.php"
+    timeout: 10
+    auth:
+      bearer_token: "dummy-token"

@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "api-einvoicing"
+version = "0.1.0"
+description = "Kafka based e-invoicing pipeline"
+authors = ["Your Name"]
+packages = [{ include = "einvoicing", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+kafka-python = "^2.0"
+httpx = "^0.27"
+psycopg = { extras = ["binary"], version = "^3.2" }
+PyYAML = "^6.0"
+PyJWT = "^2.8"
+fastapi = "^0.115"
+uvicorn = "^0.30"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"

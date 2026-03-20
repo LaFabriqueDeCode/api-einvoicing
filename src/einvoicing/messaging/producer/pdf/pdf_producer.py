@@ -1,0 +1,33 @@
+from __future__ import annotations
+
+import logging
+
+from einvoicing.models import PdfMessage
+from einvoicing.utils.kafka import build_producer
+
+logger = logging.getLogger(__name__)
+
+
+class PdfProducer:
+	def __init__(self, bootstrap_servers: list[str], topic: str) -> None:
+		self._topic = topic
+		self._producer = build_producer(bootstrap_servers)
+
+	def send(self, message: PdfMessage) -> None:
+		future = self._producer.send(self._topic, value=message.to_dict())
+		metadata = future.get(timeout=10)
+
+		logger.info(
+			"Sent message topic=%s partition=%s offset=%s filename=%s full_path=%s",
+			metadata.topic,
+			metadata.partition,
+			metadata.offset,
+			message.filename,
+			message.full_path,
+		)
+
+	def flush(self) -> None:
+		self._producer.flush()
+
+	def close(self) -> None:
+		self._producer.close()

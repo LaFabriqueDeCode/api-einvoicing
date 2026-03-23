@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from einvoicing.repositories.invoice_batch_repository import InvoiceBatchRepository
+from einvoicing.infrastructure.postgres.repositories.invoice_batch_repository import InvoiceBatchRepository
 
 
 @dataclass(frozen=True, slots=True)

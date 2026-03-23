@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from einvoicing.application.invoice_publisher_service import (
@@ -13,13 +14,9 @@ from einvoicing.application.invoice_publisher_service import (
 from einvoicing.config import load_config
 from einvoicing.domain.exceptions import DuplicateInvoiceError
 from einvoicing.infrastructure.database import build_dsn
-from einvoicing.infrastructure.postgres.postgres_invoice_batch_repository import (
-	PostgresInvoiceBatchRepository,
-)
-from einvoicing.infrastructure.postgres.postgres_invoice_repository import (
-	PostgresInvoiceRepository,
-)
-from einvoicing.messaging.producer.pdf.pdf_producer import PdfProducer
+from einvoicing.infrastructure.postgres.repositories.invoice_batch_repository import PostgresInvoiceBatchRepository
+from einvoicing.infrastructure.postgres.repositories.invoice_repository import PostgresInvoiceRepository
+from einvoicing.messaging.producer.invoice.producer import InvoiceProducer
 
 router = APIRouter(prefix="/invoices")
 
@@ -57,7 +54,10 @@ class CreateInvoicesResponse(BaseModel):
 	response_model=CreateInvoicesResponse,
 	status_code=status.HTTP_202_ACCEPTED,
 )
-def create_invoices(payload: CreateInvoicesPayload) -> CreateInvoicesResponse:
+def create_invoices(
+	request: Request,
+	payload: CreateInvoicesPayload,
+) -> CreateInvoicesResponse:
 	if payload.batch_id and not payload.batch_type:
 		raise HTTPException(
 			status_code=status.HTTP_400_BAD_REQUEST,
@@ -70,10 +70,12 @@ def create_invoices(payload: CreateInvoicesPayload) -> CreateInvoicesResponse:
 			detail="batch_id required when batch_type is provided",
 		)
 
+	request_id = request.headers.get("X-Request-Id") or str(uuid4())
+
 	config = load_config()
 	kafka_config = config["kafka"]
 
-	producer = PdfProducer(
+	producer = InvoiceProducer(
 		bootstrap_servers=kafka_config["bootstrap_servers"],
 		topic=kafka_config["topic"],
 	)
@@ -116,6 +118,7 @@ def create_invoices(payload: CreateInvoicesPayload) -> CreateInvoicesResponse:
 			try:
 				result = service.publish(
 					PublishInvoiceRequest(
+						request_id=request_id,
 						provider=payload.provider,
 						file_path=item.path,
 						external_batch_id=payload.batch_id,
@@ -151,6 +154,7 @@ def create_invoices(payload: CreateInvoicesPayload) -> CreateInvoicesResponse:
 		raise HTTPException(
 			status_code=status.HTTP_409_CONFLICT,
 			detail={"errors": errors},
+			headers={"X-Request-Id": request_id},
 		)
 
 	return CreateInvoicesResponse(

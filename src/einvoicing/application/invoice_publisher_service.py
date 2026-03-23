@@ -6,16 +6,17 @@ from pathlib import Path
 
 from einvoicing.domain.exceptions import DuplicateInvoiceError
 from einvoicing.domain.invoice import Invoice
-from einvoicing.messaging.producer.pdf.pdf_producer import PdfProducer
-from einvoicing.models import PdfMessage
-from einvoicing.repositories.invoice_batch_repository import InvoiceBatchRepository
-from einvoicing.repositories.invoice_repository import InvoiceRepository
+from einvoicing.messaging.producer.invoice.producer import InvoiceProducer
+from einvoicing.messaging.invoice.message import InvoiceMessage
+from einvoicing.infrastructure.postgres.repositories.invoice_batch_repository import InvoiceBatchRepository
+from einvoicing.infrastructure.postgres.repositories.invoice_repository import InvoiceRepository
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
 class PublishInvoiceRequest:
+	request_id: str
 	provider: str
 	file_path: str
 	external_batch_id: str | None = None
@@ -37,7 +38,7 @@ class PublishInvoiceResult:
 class InvoicePublisherService:
 	def __init__(
 		self,
-		producer: PdfProducer,
+		producer: InvoiceProducer,
 		invoice_repository: InvoiceRepository,
 		batch_repository: InvoiceBatchRepository,
 	) -> None:
@@ -76,21 +77,18 @@ class InvoicePublisherService:
 				f"tracking_id={invoice.tracking_id} batch_id={request.external_batch_id}"
 			)
 
-		message = PdfMessage.create(
+		message = InvoiceMessage.create(
+			request_id=request.request_id,
 			invoice_id=save_result.invoice_id,
 			provider=request.provider,
 			filename=file_path.name,
 			full_path=str(file_path),
-			batch_id=request.external_batch_id,
-			batch_type=request.batch_type,
 			tracking_id=invoice.tracking_id,
-			processing_rule="B2B",
-			flow_syntax="UBL",
-			flow_profile=None,
 		)
 
 		logger.info(
-			"Publishing invoice invoice_id=%s provider=%s tracking_id=%s external_batch_id=%s filename=%s",
+			"Publishing invoice global_request_id=%s invoice_id=%s provider=%s tracking_id=%s external_batch_id=%s filename=%s",
+			request.request_id,
 			save_result.invoice_id,
 			request.provider,
 			invoice.tracking_id,

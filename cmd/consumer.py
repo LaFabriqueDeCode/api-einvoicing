@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from einvoicing.config import load_config
 from einvoicing.infrastructure.database import build_dsn
-from einvoicing.infrastructure.postgres.postgres_app_status_repository import (
+from einvoicing.infrastructure.postgres.repositories.app_status_repository import (
 	PostgresAppStatusRepository,
 )
-from einvoicing.infrastructure.postgres.postgres_invoice_history_repository import (
+from einvoicing.infrastructure.postgres.repositories.invoice_history_repository import (
 	PostgresInvoiceHistoryRepository,
 )
-from einvoicing.infrastructure.postgres.postgres_invoice_repository import (
+from einvoicing.infrastructure.postgres.repositories.invoice_repository import (
 	PostgresInvoiceRepository,
 )
 from einvoicing.logger import configure_logging
-from einvoicing.messaging.consumer.pdf.pdf_consumer import PdfConsumer
+from einvoicing.messaging.consumer.invoice.consumer import InvoiceConsumer
 
 
 def main() -> int:
@@ -32,7 +32,7 @@ def main() -> int:
 	ok_app_status_id = app_status_repository.get_id_by_code("OK")
 	error_app_status_id = app_status_repository.get_id_by_code("ERROR")
 
-	consumer = PdfConsumer(
+	consumer = InvoiceConsumer(
 		bootstrap_servers=kafka_config["bootstrap_servers"],
 		topic=kafka_config["topic"],
 		group_id=kafka_config["consumer_group_id"],

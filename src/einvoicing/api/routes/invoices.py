@@ -14,13 +14,9 @@ from einvoicing.application.invoice_publisher_service import (
 from einvoicing.config import load_config
 from einvoicing.domain.exceptions import DuplicateInvoiceError
 from einvoicing.infrastructure.database import build_dsn
-from einvoicing.infrastructure.postgres.postgres_invoice_batch_repository import (
-	PostgresInvoiceBatchRepository,
-)
-from einvoicing.infrastructure.postgres.postgres_invoice_repository import (
-	PostgresInvoiceRepository,
-)
-from einvoicing.messaging.producer.pdf.pdf_producer import PdfProducer
+from einvoicing.infrastructure.postgres.repositories.invoice_batch_repository import PostgresInvoiceBatchRepository
+from einvoicing.infrastructure.postgres.repositories.invoice_repository import PostgresInvoiceRepository
+from einvoicing.messaging.producer.invoice.producer import InvoiceProducer
 
 router = APIRouter(prefix="/invoices")
 
@@ -79,7 +75,7 @@ def create_invoices(
 	config = load_config()
 	kafka_config = config["kafka"]
 
-	producer = PdfProducer(
+	producer = InvoiceProducer(
 		bootstrap_servers=kafka_config["bootstrap_servers"],
 		topic=kafka_config["topic"],
 	)

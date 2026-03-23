@@ -83,19 +83,19 @@ Que se passe-t-il si on tente de soumettre une facture qui existe en base dans u
 --------------------------------------------------------------------------------
 
 cd ~/Development/api-einvoicing && poetry run uvicorn einvoicing.api.main:app --reload
-cd ~/Development/api-einvoicing && poetry run python scripts/run_consumer.py
+cd ~/Development/api-einvoicing && poetry run python cmd/consumer.py
 docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
 
 psql postgres
 psql "postgresql://einvoicing_user:secret@localhost:5432/einvoicing"
 TRUNCATE TABLE invoice_history, invoices, invoice_batches RESTART IDENTITY;
 
-plus utilisé :
-  poetry run python kafka/scripts/scan_pdf_directory.py PDF --provider doxallia --batch-type XPR --batch-id 20260601000000
-
 cd ~/Development/api-einvoicing && find . -type d -name "__pycache__" -exec rm -rf {} + && find . -type f -name "*.pyc" -delete
 
 cd ~/Development/api-einvoicing && docker-compose -f compose/docker-compose-kafka.yml down && docker-compose -f compose/docker-compose-kafka.yml up -d
+
+DEPRECATED :
+  poetry run python kafka/scripts/scan_pdf_directory.py PDF --provider doxallia --batch-type XPR --batch-id 20260601000000
 
 --------------------------------------------------------------------------------
 -- POLLING

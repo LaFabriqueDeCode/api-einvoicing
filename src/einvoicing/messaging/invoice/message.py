@@ -5,7 +5,7 @@ from uuid import uuid4
 
 
 @dataclass(frozen=True, slots=True)
-class PdfMessage:
+class InvoiceMessage:
 	message_id: str
 	request_id: str
 	invoice_id: int
@@ -22,8 +22,8 @@ class PdfMessage:
 		filename: str,
 		full_path: str,
 		tracking_id: str,
-	) -> "PdfMessage":
-		return PdfMessage(
+	) -> "InvoiceMessage":
+		return InvoiceMessage(
 			message_id=str(uuid4()),
 			request_id=request_id,
 			invoice_id=invoice_id,

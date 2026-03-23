@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from einvoicing.auth.static_jwt_token_provider import StaticJwtTokenProvider
+from einvoicing.auth.providers.static import StaticJwtTokenProvider
 from einvoicing.provider.doxallia.client import DoxalliaClient
 from einvoicing.provider.exceptions import UnsupportedProviderError
-from einvoicing.provider.interfaces import ProviderClientInterface
+from einvoicing.provider.provider_client import ProviderClientInterface
 
 
 class ProviderClientFactory:
@@ -26,13 +26,11 @@ class ProviderClientFactory:
 
 		return self.create(provider)
 
-	def _build_doxallia_client(self) -> DoxalliaClient:
+	def _build_doxallia_client(self) -> ProviderClientInterface:
 		provider_config = self._config["providers"]["doxallia"]
 		auth_config = provider_config.get("auth", {})
 
-		token_provider = StaticJwtTokenProvider(
-			token=auth_config.get("bearer_token", "dummy-token")
-		)
+		token_provider = StaticJwtTokenProvider(token=auth_config.get("bearer_token", "dummy-token"))
 
 		return DoxalliaClient(
 			base_url=provider_config["base_url"],

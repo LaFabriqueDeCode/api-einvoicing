@@ -6,10 +6,10 @@ from pathlib import Path
 
 from einvoicing.domain.exceptions import DuplicateInvoiceError
 from einvoicing.domain.invoice import Invoice
-from einvoicing.messaging.producer.pdf.pdf_producer import PdfProducer
-from einvoicing.models import PdfMessage
-from einvoicing.repositories.invoice_batch_repository import InvoiceBatchRepository
-from einvoicing.repositories.invoice_repository import InvoiceRepository
+from einvoicing.messaging.producer.invoice.producer import InvoiceProducer
+from einvoicing.messaging.invoice.message import InvoiceMessage
+from einvoicing.infrastructure.postgres.repositories.invoice_batch_repository import InvoiceBatchRepository
+from einvoicing.infrastructure.postgres.repositories.invoice_repository import InvoiceRepository
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class PublishInvoiceResult:
 class InvoicePublisherService:
 	def __init__(
 		self,
-		producer: PdfProducer,
+		producer: InvoiceProducer,
 		invoice_repository: InvoiceRepository,
 		batch_repository: InvoiceBatchRepository,
 	) -> None:
@@ -77,7 +77,7 @@ class InvoicePublisherService:
 				f"tracking_id={invoice.tracking_id} batch_id={request.external_batch_id}"
 			)
 
-		message = PdfMessage.create(
+		message = InvoiceMessage.create(
 			request_id=request.request_id,
 			invoice_id=save_result.invoice_id,
 			provider=request.provider,

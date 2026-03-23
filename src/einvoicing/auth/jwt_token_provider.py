@@ -12,13 +12,15 @@ class JwtTokenProvider(ABC):
 		self._lock = threading.Lock()
 
 	def get_token(self) -> str:
-
 		if self._cached_token is not None and not self._cached_token.is_expired():
 			return self._cached_token.access_token
 
 		with self._lock:
 			if self._cached_token is None or self._cached_token.is_expired():
 				self._cached_token = self._fetch_token()
+
+		if self._cached_token is None:
+			raise RuntimeError("JWT token could not be fetched")
 
 		return self._cached_token.access_token
 

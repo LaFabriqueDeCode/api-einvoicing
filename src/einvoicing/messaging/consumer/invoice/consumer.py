@@ -4,23 +4,17 @@ import logging
 
 import httpx
 
-from einvoicing.provider.doxallia.flow_info_builder import DoxalliaFlowInfoBuilder
-from einvoicing.application.request_context import RequestContext
 from einvoicing.config import load_config
-from einvoicing.provider.doxallia.mappers.submission_response_mapper import (
-	DoxalliaSubmissionResponseMapper,
-)
-from einvoicing.provider.factory import ProviderClientFactory
-from einvoicing.repositories.invoice_history_repository import (
-	InvoiceHistoryRepository,
-)
+from einvoicing.context.request_context import RequestContext
+from einvoicing.provider.provider_client_factory import ProviderClientFactory
+from einvoicing.repositories.invoice_history_repository import InvoiceHistoryRepository
 from einvoicing.repositories.invoice_repository import InvoiceRepository
-from einvoicing.utils.kafka import build_consumer
+from einvoicing.messaging.kafka import build_consumer
 
 logger = logging.getLogger(__name__)
 
 
-class PdfConsumer:
+class InvoiceConsumer:
 	def __init__(
 		self,
 		bootstrap_servers: list[str],
@@ -42,7 +36,6 @@ class PdfConsumer:
 		self._invoice_repository = invoice_repository
 		self._ok_app_status_id = ok_app_status_id
 		self._error_app_status_id = error_app_status_id
-		self._doxallia_flow_info_builder = DoxalliaFlowInfoBuilder()
 
 	def consume_forever(self) -> None:
 		logger.info("Consumer started")
@@ -63,10 +56,9 @@ class PdfConsumer:
 					payload.get("invoice_id"),
 				)
 
-				provider = payload.get("provider")
-				if not provider:
+				if not self._is_valid_payload(payload):
 					logger.error(
-						"Skipping message without provider topic=%s partition=%s offset=%s payload=%s",
+						"Skipping invalid payload topic=%s partition=%s offset=%s payload=%s",
 						message.topic,
 						message.partition,
 						message.offset,
@@ -74,68 +66,31 @@ class PdfConsumer:
 					)
 					continue
 
-				invoice_id = payload.get("invoice_id")
-				if invoice_id is None:
-					logger.error(
-						"Skipping message without invoice_id topic=%s partition=%s offset=%s payload=%s",
-						message.topic,
-						message.partition,
-						message.offset,
-						payload,
-					)
-					continue
-
+				provider = payload["provider"]
+				invoice_id = payload["invoice_id"]
+				context = RequestContext(global_request_id=payload["request_id"])
 				client = self._provider_factory.create(provider)
 
 				try:
-					if provider == "doxallia":
-						context = RequestContext(
-							global_request_id=payload["request_id"],
-						).with_new_provider_request()
-
-						flow_info = self._doxallia_flow_info_builder.build(
-							filename=payload["filename"],
-							full_path=payload["full_path"],
-							tracking_id=payload.get("tracking_id"),
-						)
-
-						response = client.submit_document(
-							payload=payload,
-							flow_info=flow_info,
-							context=context,
-						)
-					else:
-						logger.error(
-							"Unsupported provider topic=%s partition=%s offset=%s provider=%s",
-							message.topic,
-							message.partition,
-							message.offset,
-							provider,
-						)
-						continue
+					response, provider_context = client.submit(payload, context)
 
 					logger.info(
 						"Provider submission succeeded global_request_id=%s provider_request_id=%s invoice_id=%s provider=%s response=%s",
-						context.global_request_id,
-						context.provider_request_id,
+						provider_context.global_request_id,
+						provider_context.provider_request_id,
 						invoice_id,
 						provider,
 						response,
 					)
 
-					event = DoxalliaSubmissionResponseMapper.from_response(
+					event = client.map_success(
 						invoice_id=invoice_id,
-						payload=response,
+						response=response,
 						app_status_id=self._ok_app_status_id,
 					)
 
 					self._history_repository.save(event)
-
-					if self._ok_app_status_id is not None:
-						self._invoice_repository.update_app_status(
-							invoice_id=invoice_id,
-							app_status_id=self._ok_app_status_id,
-						)
+					self._update_ok_status(invoice_id)
 
 				except httpx.HTTPStatusError as exc:
 					logger.exception(
@@ -145,26 +100,20 @@ class PdfConsumer:
 						exc,
 					)
 
-					error_payload = None
 					try:
 						error_payload = exc.response.json()
 					except Exception:
 						error_payload = {"body": exc.response.text}
 
-					event = DoxalliaSubmissionResponseMapper.from_error(
+					event = client.map_error(
 						invoice_id=invoice_id,
-						error=f"Doxallia HTTP error {exc.response.status_code}",
+						error=f"HTTP {exc.response.status_code}",
 						payload=error_payload,
 						app_status_id=self._error_app_status_id,
 					)
 
 					self._history_repository.save(event)
-
-					if self._error_app_status_id is not None:
-						self._invoice_repository.update_app_status(
-							invoice_id=invoice_id,
-							app_status_id=self._error_app_status_id,
-						)
+					self._update_error_status(invoice_id)
 
 				except Exception as exc:
 					logger.exception(
@@ -174,7 +123,7 @@ class PdfConsumer:
 						exc,
 					)
 
-					event = DoxalliaSubmissionResponseMapper.from_error(
+					event = client.map_error(
 						invoice_id=invoice_id,
 						error=str(exc),
 						payload=None,
@@ -182,12 +131,10 @@ class PdfConsumer:
 					)
 
 					self._history_repository.save(event)
+					self._update_error_status(invoice_id)
 
-					if self._error_app_status_id is not None:
-						self._invoice_repository.update_app_status(
-							invoice_id=invoice_id,
-							app_status_id=self._error_app_status_id,
-						)
+				finally:
+					client.close()
 
 				logger.info(
 					"Invoice history event saved topic=%s partition=%s offset=%s invoice_id=%s",
@@ -199,3 +146,39 @@ class PdfConsumer:
 
 		finally:
 			self._consumer.close()
+
+	def _is_valid_payload(self, payload: dict) -> bool:
+		if not payload.get("provider"):
+			return False
+
+		if payload.get("invoice_id") is None:
+			return False
+
+		if not payload.get("request_id"):
+			return False
+
+		if not payload.get("filename"):
+			return False
+
+		if not payload.get("full_path"):
+			return False
+
+		return True
+
+	def _update_ok_status(self, invoice_id: int) -> None:
+		if self._ok_app_status_id is None:
+			return
+
+		self._invoice_repository.update_app_status(
+			invoice_id=invoice_id,
+			app_status_id=self._ok_app_status_id,
+		)
+
+	def _update_error_status(self, invoice_id: int) -> None:
+		if self._error_app_status_id is None:
+			return
+
+		self._invoice_repository.update_app_status(
+			invoice_id=invoice_id,
+			app_status_id=self._error_app_status_id,
+		)

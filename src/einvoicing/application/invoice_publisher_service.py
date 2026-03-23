@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class PublishInvoiceRequest:
+	request_id: str
 	provider: str
 	file_path: str
 	external_batch_id: str | None = None
@@ -77,20 +78,17 @@ class InvoicePublisherService:
 			)
 
 		message = PdfMessage.create(
+			request_id=request.request_id,
 			invoice_id=save_result.invoice_id,
 			provider=request.provider,
 			filename=file_path.name,
 			full_path=str(file_path),
-			batch_id=request.external_batch_id,
-			batch_type=request.batch_type,
 			tracking_id=invoice.tracking_id,
-			processing_rule="B2B",
-			flow_syntax="UBL",
-			flow_profile=None,
 		)
 
 		logger.info(
-			"Publishing invoice invoice_id=%s provider=%s tracking_id=%s external_batch_id=%s filename=%s",
+			"Publishing invoice global_request_id=%s invoice_id=%s provider=%s tracking_id=%s external_batch_id=%s filename=%s",
+			request.request_id,
 			save_result.invoice_id,
 			request.provider,
 			invoice.tracking_id,

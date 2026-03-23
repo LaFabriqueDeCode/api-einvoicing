@@ -4,8 +4,10 @@ import logging
 
 import httpx
 
+from einvoicing.provider.doxallia.flow_info_builder import DoxalliaFlowInfoBuilder
+from einvoicing.application.request_context import RequestContext
 from einvoicing.config import load_config
-from einvoicing.mappers.doxallia_submission_response_mapper import (
+from einvoicing.provider.doxallia.mappers.submission_response_mapper import (
 	DoxalliaSubmissionResponseMapper,
 )
 from einvoicing.provider.factory import ProviderClientFactory
@@ -40,6 +42,7 @@ class PdfConsumer:
 		self._invoice_repository = invoice_repository
 		self._ok_app_status_id = ok_app_status_id
 		self._error_app_status_id = error_app_status_id
+		self._doxallia_flow_info_builder = DoxalliaFlowInfoBuilder()
 
 	def consume_forever(self) -> None:
 		logger.info("Consumer started")
@@ -49,10 +52,11 @@ class PdfConsumer:
 				payload = message.value
 
 				logger.info(
-					"Received message topic=%s partition=%s offset=%s provider=%s filename=%s full_path=%s invoice_id=%s",
+					"Received message topic=%s partition=%s offset=%s global_request_id=%s provider=%s filename=%s full_path=%s invoice_id=%s",
 					message.topic,
 					message.partition,
 					message.offset,
+					payload.get("request_id"),
 					payload.get("provider"),
 					payload.get("filename"),
 					payload.get("full_path"),
@@ -84,30 +88,46 @@ class PdfConsumer:
 				client = self._provider_factory.create(provider)
 
 				try:
-					response = client.submit_document(payload)
-
-					logger.info(
-						"Provider submission succeeded invoice_id=%s provider=%s response=%s",
-						invoice_id,
-						provider,
-						response,
-					)
-
 					if provider == "doxallia":
-						event = DoxalliaSubmissionResponseMapper.from_response(
-							invoice_id=invoice_id,
-							payload=response,
-							app_status_id=self._ok_app_status_id,
+						context = RequestContext(
+							global_request_id=payload["request_id"],
+						).with_new_provider_request()
+
+						flow_info = self._doxallia_flow_info_builder.build(
+							filename=payload["filename"],
+							full_path=payload["full_path"],
+							tracking_id=payload.get("tracking_id"),
+						)
+
+						response = client.submit_document(
+							payload=payload,
+							flow_info=flow_info,
+							context=context,
 						)
 					else:
 						logger.error(
-							"Unsupported provider for mapping topic=%s partition=%s offset=%s provider=%s",
+							"Unsupported provider topic=%s partition=%s offset=%s provider=%s",
 							message.topic,
 							message.partition,
 							message.offset,
 							provider,
 						)
 						continue
+
+					logger.info(
+						"Provider submission succeeded global_request_id=%s provider_request_id=%s invoice_id=%s provider=%s response=%s",
+						context.global_request_id,
+						context.provider_request_id,
+						invoice_id,
+						provider,
+						response,
+					)
+
+					event = DoxalliaSubmissionResponseMapper.from_response(
+						invoice_id=invoice_id,
+						payload=response,
+						app_status_id=self._ok_app_status_id,
+					)
 
 					self._history_repository.save(event)
 

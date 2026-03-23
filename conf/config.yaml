@@ -1,8 +1,8 @@
 kafka:
   bootstrap_servers:
     - localhost:9092
-  topic: e-invoicing
-  consumer_group_id: pdf-einvoicing-consumer
+  topic: einvoicing
+  consumer_group_id: einvoicing-consumer
 
 database:
   host: localhost
@@ -10,10 +10,6 @@ database:
   dbname: einvoicing
   user: einvoicing_user
   password: secret
-
-scanner:
-  recursive: true
-  extension: .pdf
 
 providers:
   doxallia:

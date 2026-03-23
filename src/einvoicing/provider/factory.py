@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from einvoicing.auth.static_jwt_token_provider import StaticJwtTokenProvider
-from einvoicing.provider.doxallia_client import DoxalliaClient
+from einvoicing.provider.doxallia.client import DoxalliaClient
 from einvoicing.provider.exceptions import UnsupportedProviderError
 from einvoicing.provider.interfaces import ProviderClientInterface
 

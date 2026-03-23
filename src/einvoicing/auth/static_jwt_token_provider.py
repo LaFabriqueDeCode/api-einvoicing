@@ -7,10 +7,11 @@ from einvoicing.auth.jwt_token_provider import JwtTokenProvider
 class StaticJwtTokenProvider(JwtTokenProvider):
 	def __init__(self, token: str = "dummy-token") -> None:
 		super().__init__()
-		self._token = token
-
-	def _fetch_token(self) -> JwtToken:
-		return JwtToken(
-			access_token=self._token,
+		self._cached_token = JwtToken(
+			access_token=token,
 			expires_at=None,
 		)
+
+	def _fetch_token(self) -> JwtToken:
+		logger.debug("Using static JWT token")
+		return self._cached_token

@@ -11,6 +11,8 @@ class DoxalliaSubmissionResponseMapper:
 		invoice_id: int,
 		payload: dict,
 		app_status_id: int | None = None,
+		global_request_id: str | None = None,
+		provider_request_id: str | None = None,
 	) -> InvoiceHistoryEvent:
 		submitted_at = payload.get("submittedAt")
 
@@ -25,6 +27,8 @@ class DoxalliaSubmissionResponseMapper:
 			event_at=event_at,
 			provider_status_id=None,
 			app_status_id=app_status_id,
+			global_request_id=global_request_id,
+			provider_request_id=provider_request_id,
 			raw_payload=payload,
 			details=f"Doxallia submission accepted for flowId={payload.get('flowId')}",
 		)
@@ -35,6 +39,8 @@ class DoxalliaSubmissionResponseMapper:
 		error: str,
 		payload: dict | None = None,
 		app_status_id: int | None = None,
+		global_request_id: str | None = None,
+		provider_request_id: str | None = None,
 	) -> InvoiceHistoryEvent:
 		return InvoiceHistoryEvent(
 			invoice_id=invoice_id,
@@ -43,6 +49,8 @@ class DoxalliaSubmissionResponseMapper:
 			event_at=None,
 			provider_status_id=None,
 			app_status_id=app_status_id,
+			global_request_id=global_request_id,
+			provider_request_id=provider_request_id,
 			raw_payload=payload,
 			details=error,
 		)

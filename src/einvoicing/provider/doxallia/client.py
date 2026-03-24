@@ -53,11 +53,15 @@ class DoxalliaClient(ProviderClientInterface):
 		invoice_id: int,
 		response: dict[str, Any],
 		app_status_id: int | None = None,
+		global_request_id: str | None = None,
+		provider_request_id: str | None = None,
 	) -> InvoiceHistoryEvent:
 		return DoxalliaSubmissionResponseMapper.from_response(
 			invoice_id=invoice_id,
 			payload=response,
 			app_status_id=app_status_id,
+			global_request_id=global_request_id,
+			provider_request_id=provider_request_id,
 		)
 
 	def map_error(
@@ -66,12 +70,16 @@ class DoxalliaClient(ProviderClientInterface):
 		error: str,
 		payload: dict[str, Any] | None = None,
 		app_status_id: int | None = None,
+		global_request_id: str | None = None,
+		provider_request_id: str | None = None,
 	) -> InvoiceHistoryEvent:
 		return DoxalliaSubmissionResponseMapper.from_error(
 			invoice_id=invoice_id,
 			error=error,
 			payload=payload,
 			app_status_id=app_status_id,
+			global_request_id=global_request_id,
+			provider_request_id=provider_request_id,
 		)
 
 	def submit_document(

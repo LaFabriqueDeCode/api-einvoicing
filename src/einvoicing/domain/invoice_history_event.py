@@ -13,5 +13,7 @@ class InvoiceHistoryEvent:
 	event_at: datetime | None = None
 	provider_status_id: int | None = None
 	app_status_id: int | None = None
+	global_request_id: str | None = None
+	provider_request_id: str | None = None
 	raw_payload: dict[str, Any] | None = None
 	details: str | None = None

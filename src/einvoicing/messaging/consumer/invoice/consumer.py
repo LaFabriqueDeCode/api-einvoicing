@@ -6,10 +6,10 @@ import httpx
 
 from einvoicing.config import load_config
 from einvoicing.context.request_context import RequestContext
+from einvoicing.messaging.kafka import build_consumer
 from einvoicing.provider.provider_client_factory import ProviderClientFactory
 from einvoicing.repositories.invoice_history_repository import InvoiceHistoryRepository
 from einvoicing.repositories.invoice_repository import InvoiceRepository
-from einvoicing.messaging.kafka import build_consumer
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,7 @@ class InvoiceConsumer:
 				invoice_id = payload["invoice_id"]
 				context = RequestContext(global_request_id=payload["request_id"])
 				client = self._provider_factory.create(provider)
+				provider_context: RequestContext | None = None
 
 				try:
 					response, provider_context = client.submit(payload, context)
@@ -87,6 +88,8 @@ class InvoiceConsumer:
 						invoice_id=invoice_id,
 						response=response,
 						app_status_id=self._ok_app_status_id,
+						global_request_id=provider_context.global_request_id,
+						provider_request_id=provider_context.provider_request_id,
 					)
 
 					self._history_repository.save(event)
@@ -110,6 +113,8 @@ class InvoiceConsumer:
 						error=f"HTTP {exc.response.status_code}",
 						payload=error_payload,
 						app_status_id=self._error_app_status_id,
+						global_request_id=context.global_request_id,
+						provider_request_id=provider_context.provider_request_id if provider_context is not None else None,
 					)
 
 					self._history_repository.save(event)
@@ -128,6 +133,8 @@ class InvoiceConsumer:
 						error=str(exc),
 						payload=None,
 						app_status_id=self._error_app_status_id,
+						global_request_id=context.global_request_id,
+						provider_request_id=provider_context.provider_request_id if provider_context is not None else None,
 					)
 
 					self._history_repository.save(event)

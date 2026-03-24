@@ -22,6 +22,8 @@ class ProviderClientInterface(ABC):
 		invoice_id: int,
 		response: dict[str, Any],
 		app_status_id: int | None = None,
+		global_request_id: str | None = None,
+		provider_request_id: str | None = None,
 	) -> InvoiceHistoryEvent:
 		pass
 
@@ -32,6 +34,8 @@ class ProviderClientInterface(ABC):
 		error: str,
 		payload: dict[str, Any] | None = None,
 		app_status_id: int | None = None,
+		global_request_id: str | None = None,
+		provider_request_id: str | None = None,
 	) -> InvoiceHistoryEvent:
 		pass
 
